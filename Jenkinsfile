@@ -1,9 +1,13 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17' // Nom du JDK défini dans Jenkins > Global Tool Configuration
+    }
+
     environment {
-        SONARQUBE_SERVER = 'SonarQube'   // Nom de ton serveur Sonar dans Jenkins
-        SONARQUBE_TOKEN = credentials('tokenkhady')  // ID de ton credential
+        SONARQUBE_SERVER = 'SonarQube'           // Nom de l'installation SonarQube dans Jenkins
+        SONARQUBE_TOKEN = credentials('tokenkhady') // ID du credential (type secret text)
     }
 
     stages {
@@ -12,18 +16,18 @@ pipeline {
                 checkout scm
             }
         }
-       
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
                     script {
-                        def scannerHome = tool 'SonarScanner' // <- Ici on charge SonarScanner installé dans Jenkins
+                        def scannerHome = tool 'SonarScanner' // Nom exact du scanner défini dans Jenkins
                         bat """
-                            ${scannerHome}/bin/sonar-scanner \
-                              -Dsonar.projectKey=jenkins-sonar \
-                              -Dsonar.sources=. \
-                              -Dsonar.host.url=http://localhost:9000 \
-                              -Dsonar.token=$SONARQUBE_TOKEN
+                            ${scannerHome}/bin/sonar-scanner ^
+                              -Dsonar.projectKey=jenkins-sonar ^
+                              -Dsonar.sources=. ^
+                              -Dsonar.host.url=http://localhost:9000 ^
+                              -Dsonar.token=${SONARQUBE_TOKEN}
                         """
                     }
                 }
@@ -31,5 +35,3 @@ pipeline {
         }
     }
 }
-
-
