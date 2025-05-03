@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_SERVER = 'SonarScaner'   // Nom de ton serveur Sonar dans Jenkins
+        SONARQUBE_SERVER = 'SonarQube'   // Nom de ton serveur Sonar dans Jenkins
         SONARQUBE_TOKEN = credentials('tokenkhady')  // ID de ton credential
     }
 
