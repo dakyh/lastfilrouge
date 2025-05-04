@@ -41,7 +41,7 @@ pipeline {
                             ${scannerHome}/bin/sonar-scanner ^
                               -Dsonar.projectKey=filbykhadylast ^
                               -Dsonar.sources=. ^
-                              -Dsonar.exclusions=**/venv/** ^
+                              -Dsonar.exclusions=venv/**/*,**\\\\venv\\\\** ^
                               -Dsonar.host.url=http://localhost:9000 ^
                               -Dsonar.token=${SONARQUBE_TOKEN}
                         """
@@ -99,4 +99,3 @@ pipeline {
         }
     }
 }
-
