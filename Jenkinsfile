@@ -2,15 +2,22 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk17' // Nom du JDK défini dans Jenkins > Global Tool Configuration
+        jdk 'jdk17'
     }
 
     environment {
-        SONARQUBE_SERVER = 'SonarQube'           // Nom de l'installation SonarQube dans Jenkins
-        SONARQUBE_TOKEN = credentials('tokenkhady') // ID du credential (type secret text)
+        SONARQUBE_SERVER = 'SonarQube'
+        SONARQUBE_TOKEN = credentials('tokenkhady')
     }
 
     stages {
+        stage('Vérifier JAVA') {
+            steps {
+                bat 'echo JAVA_HOME=%JAVA_HOME%'
+                bat 'java -version'
+            }
+        }
+
         stage('Checkout SCM') {
             steps {
                 checkout scm
@@ -21,7 +28,7 @@ pipeline {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
                     script {
-                        def scannerHome = tool 'SonarScanner' // Nom exact du scanner défini dans Jenkins
+                        def scannerHome = tool 'SonarScanner'
                         bat """
                             ${scannerHome}/bin/sonar-scanner ^
                               -Dsonar.projectKey=jenkins-sonar ^
