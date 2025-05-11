@@ -2,17 +2,17 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk17' // Assure-toi que JDK 17 est bien configuré dans Jenkins
+        jdk 'jdk17'
     }
 
     environment {
         DOCKER_USER = 'dakyh'
         BACKEND_IMAGE = "${DOCKER_USER}/filrouge-backend"
         FRONTEND_IMAGE = "${DOCKER_USER}/filrouge-frontend"
-        DB_IMAGE = "${DOCKER_USER}/filrouge-db"
+        MIGRATE_IMAGE = "${DOCKER_USER}/filrouge-migrate"
 
-        SONARQUBE_SERVER = 'SonarQube' // Nom défini dans "Manage Jenkins > Configure System"
-        SONARQUBE_TOKEN = credentials('tokenkhady') // Ton token Sonar
+        SONARQUBE_SERVER = 'SonarQube'
+        SONARQUBE_TOKEN = credentials('tokenkhady')
     }
 
     stages {
@@ -49,9 +49,9 @@ pipeline {
 
         stage('Build des images Docker') {
             steps {
-                bat "docker build -t %BACKEND_IMAGE%:latest ./Backend"
-                bat "docker build -t %FRONTEND_IMAGE%:latest ./Frontend"
-                bat "docker build -t %DB_IMAGE%:latest ./DB_filRouge"
+                bat "docker build -t %BACKEND_IMAGE%:latest Backend/odc"
+                bat "docker build -t %FRONTEND_IMAGE%:latest Frontend"
+                bat "docker build -t %MIGRATE_IMAGE%:latest Backend/odc"
             }
         }
 
@@ -60,7 +60,7 @@ pipeline {
                 withDockerRegistry([credentialsId: 'newdy', url: '']) {
                     bat "docker push %BACKEND_IMAGE%:latest"
                     bat "docker push %FRONTEND_IMAGE%:latest"
-                    bat "docker push %DB_IMAGE%:latest"
+                    bat "docker push %MIGRATE_IMAGE%:latest"
                 }
             }
         }
@@ -78,7 +78,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline réussi : analyse + build + déploiement."
+            echo "✅ Pipeline terminé avec succès. Application déployée et analysée."
         }
         failure {
             echo "❌ Échec du pipeline, voir les logs Jenkins."
