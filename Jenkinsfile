@@ -12,7 +12,7 @@ pipeline {
         stage('Cloner le dépôt') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/dakyh/FilRouge.git'
+                    url: 'https://github.com/dakyh/lastfilrouge.git'
             }
         }
         
@@ -26,7 +26,7 @@ pipeline {
         
         stage('Push des images') {
             steps {
-                withDockerRegistry([credentialsId: 'khady', url: 'https://index.docker.io/v1/']) {
+                withDockerRegistry([credentialsId: 'khady']) {
                     bat 'docker push %BACKEND_IMAGE%:latest'
                     bat 'docker push %FRONTEND_IMAGE%:latest'
                     bat 'docker push %DB_IMAGE%:latest'
