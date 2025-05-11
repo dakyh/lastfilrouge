@@ -58,8 +58,7 @@ pipeline {
         stage('Push des images Docker') {
             steps {
                 script {
-                    // 'dockerhub_credentials' est l’ID des identifiants Docker Hub configurés dans Jenkins
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub_credentials') {
+                    withDockerRegistry([credentialsId: 'newdy'], 'https://index.docker.io/v1/') {
                         bat "docker push %BACKEND_IMAGE%:latest"
                         bat "docker push %FRONTEND_IMAGE%:latest"
                         bat "docker push %DB_IMAGE%:latest"
@@ -67,7 +66,7 @@ pipeline {
                 }
             }
         }
-    }
+
 
     post {
         success {
