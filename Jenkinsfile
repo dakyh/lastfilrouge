@@ -6,13 +6,13 @@ pipeline {
     }
 
     environment {
-        DOCKER_USER = 'dakyh'
-        BACKEND_IMAGE = "${DOCKER_USER}/filrouge-backend"
-        FRONTEND_IMAGE = "${DOCKER_USER}/filrouge-frontend"
-        DB_IMAGE = "${DOCKER_USER}/filrouge-db"
+        DOCKER_USER      = 'dakyh'
+        BACKEND_IMAGE    = "${DOCKER_USER}/filrouge-backend"
+        FRONTEND_IMAGE   = "${DOCKER_USER}/filrouge-frontend"
+        DB_IMAGE         = "${DOCKER_USER}/filrouge-db"
 
         SONARQUBE_SERVER = 'SonarQube'
-        SONARQUBE_TOKEN = credentials('tokenkhady')
+        SONARQUBE_TOKEN  = credentials('tokenkhady')
     }
 
     stages {
@@ -54,11 +54,24 @@ pipeline {
                 bat "docker build -t %DB_IMAGE%:latest ./DB_filRouge"
             }
         }
+
+        stage('Push des images Docker') {
+            steps {
+                script {
+                    // 'dockerhub_credentials' est l’ID des identifiants Docker Hub configurés dans Jenkins
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub_credentials') {
+                        bat "docker push %BACKEND_IMAGE%:latest"
+                        bat "docker push %FRONTEND_IMAGE%:latest"
+                        bat "docker push %DB_IMAGE%:latest"
+                    }
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo "✅ Pipeline terminé avec succès. Application buildée et analysée."
+            echo "✅ Pipeline terminé avec succès. Application buildée, analysée et images poussées sur Docker Hub."
         }
         failure {
             echo "❌ Échec du pipeline, voir les logs Jenkins."
