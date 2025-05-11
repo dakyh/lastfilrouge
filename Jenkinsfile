@@ -26,7 +26,7 @@ pipeline {
         
         stage('Push des images') {
             steps {
-                withDockerRegistry([credentialsId: 'khady']) {
+                withDockerRegistry([credentialsId: 'newdy']) {
                     bat 'docker push %BACKEND_IMAGE%:latest'
                     bat 'docker push %FRONTEND_IMAGE%:latest'
                     bat 'docker push %DB_IMAGE%:latest'
