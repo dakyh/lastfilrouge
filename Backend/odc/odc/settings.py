@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os 
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -78,16 +78,19 @@ WSGI_APPLICATION = 'odc.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'odcdb',
-        'USER': 'odc',
-        'PASSWORD': 'odc123',
-        'HOST': 'db',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'odcdb'),
+        'USER': os.environ.get('DB_USER', 'odc'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'odc123'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),  # ✅ fallback = localhost
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',

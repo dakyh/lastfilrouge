@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   backend:
     build: ./Backend/odc
@@ -6,6 +8,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
+
   frontend:
     build: ./Frontend
     container_name: frontend_app
@@ -22,7 +25,7 @@ services:
       POSTGRES_PASSWORD: odc123
       POSTGRES_DB: odcdb
     ports:
-      - 5433:5432
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
