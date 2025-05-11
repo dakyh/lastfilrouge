@@ -1,21 +1,52 @@
 pipeline {
     agent any
 
+    tools {
+        jdk 'jdk17' // Ton JDK installé dans Jenkins
+    }
+
     environment {
         DOCKER_USER = 'dakyh'
         BACKEND_IMAGE = "${DOCKER_USER}/filrouge-backend"
         FRONTEND_IMAGE = "${DOCKER_USER}/filrouge-frontend"
         DB_IMAGE = "${DOCKER_USER}/filrouge-db"
+
+        SONARQUBE_SERVER = 'SonarQube'
+        SONARQUBE_TOKEN = credentials('tokenkhady')
     }
-    
+
     stages {
+        stage('Vérifier JAVA') {
+            steps {
+                bat 'echo JAVA_HOME=%JAVA_HOME%'
+                bat 'java -version'
+            }
+        }
+
         stage('Cloner le dépôt') {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/dakyh/lastfilrouge.git'
             }
         }
-        
+
+        stage('Analyse SonarQube') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    script {
+                        def scannerHome = tool 'SonarScanner'
+                        bat """
+                            ${scannerHome}/bin/sonar-scanner ^
+                              -Dsonar.projectKey=filbykhadylast ^
+                              -Dsonar.sources=. ^
+                              -Dsonar.host.url=http://localhost:9000 ^
+                              -Dsonar.token=${SONARQUBE_TOKEN}
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Build des images Docker') {
             steps {
                 bat "docker build -t %BACKEND_IMAGE%:latest ./Backend/odc"
@@ -23,14 +54,34 @@ pipeline {
                 bat "docker build -t %DB_IMAGE%:latest ./DB_filRouge"
             }
         }
+
+        stage('Push des images Docker') {
+            steps {
+                withDockerRegistry([credentialsId: 'newdy', url: '']) {
+                    bat "docker push %BACKEND_IMAGE%:latest"
+                    bat "docker push %FRONTEND_IMAGE%:latest"
+                    bat "docker push %DB_IMAGE%:latest"
+                }
+            }
+        }
+
+        stage('Déploiement local') {
+            steps {
+                bat '''
+                    docker-compose down || true
+                    docker-compose pull
+                    docker-compose up -d --build
+                '''
+            }
+        }
     }
-    
+
     post {
         success {
-            echo "✅ Build terminé avec succès."
+            echo "✅ Pipeline complet réussi : analyse Sonar + build/push + déploiement."
         }
         failure {
-            echo "❌ Le build a échoué. Vérifiez les logs."
+            echo "❌ Échec du pipeline. Vérifiez les étapes ci-dessus dans Jenkins."
         }
     }
 }
