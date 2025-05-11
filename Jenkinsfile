@@ -1,43 +1,46 @@
 pipeline {
     agent any
-
-    tools {
-        jdk 'jdk17'
-    }
-
+    
     environment {
-        SONARQUBE_SERVER = 'SonarQube'
-        SONARQUBE_TOKEN = credentials('tokenkhady')
+        DOCKER_USER = 'dakyh'
+        BACKEND_IMAGE = "${DOCKER_USER}/filrouge-backend"
+        FRONTEND_IMAGE = "${DOCKER_USER}/filrouge-frontend"
+        DB_IMAGE = "${DOCKER_USER}/filrouge-db"
     }
-
+    
     stages {
-        stage('Vérifier JAVA') {
+        stage('Cloner le dépôt') {
             steps {
-                bat 'echo JAVA_HOME=%JAVA_HOME%'
-                bat 'java -version'
+                git branch: 'main',
+                    url: 'https://github.com/dakyh/FilRouge.git'
             }
         }
-
-        stage('Checkout SCM') {
+        
+        stage('Build des images') {
             steps {
-                checkout scm
+                bat 'docker build -t %BACKEND_IMAGE%:latest Backend'
+                bat 'docker build -t %FRONTEND_IMAGE%:latest Frontend'
+                bat 'docker build -t %DB_IMAGE%:latest DB_filRouge'
             }
         }
-
-        stage('SonarQube Analysis') {
+        
+        stage('Push des images') {
             steps {
-                withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
-                        bat """
-                            ${scannerHome}/bin/sonar-scanner ^
-                              -Dsonar.projectKey=filbykhadylast ^
-                              -Dsonar.sources=. ^
-                              -Dsonar.host.url=http://localhost:9000 ^
-                              -Dsonar.token=${SONARQUBE_TOKEN}
-                        """
-                    }
+                withDockerRegistry([credentialsId: 'khady', url: 'https://index.docker.io/v1/']) {
+                    bat 'docker push %BACKEND_IMAGE%:latest'
+                    bat 'docker push %FRONTEND_IMAGE%:latest'
+                    bat 'docker push %DB_IMAGE%:latest'
                 }
+            }
+        }
+        
+        stage('Déploiement') {
+            steps {
+                bat '''
+                    docker-compose down || exit 0
+                    docker-compose pull
+                    docker-compose up -d
+                '''
             }
         }
     }
