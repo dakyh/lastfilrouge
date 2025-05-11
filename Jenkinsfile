@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        jdk 'jdk17' // Ton JDK installé dans Jenkins
+        jdk 'jdk17'
     }
 
     environment {
@@ -54,34 +54,14 @@ pipeline {
                 bat "docker build -t %DB_IMAGE%:latest ./DB_filRouge"
             }
         }
-
-        stage('Push des images Docker') {
-            steps {
-                withDockerRegistry([credentialsId: 'newdy', url: '']) {
-                    bat "docker push %BACKEND_IMAGE%:latest"
-                    bat "docker push %FRONTEND_IMAGE%:latest"
-                    bat "docker push %DB_IMAGE%:latest"
-                }
-            }
-        }
-
-        stage('Déploiement local') {
-            steps {
-                bat '''
-                    docker-compose down || true
-                    docker-compose pull
-                    docker-compose up -d --build
-                '''
-            }
-        }
     }
 
     post {
         success {
-            echo "✅ Pipeline complet réussi : analyse Sonar + build/push + déploiement."
+            echo "✅ Pipeline terminé avec succès. Application buildée et analysée."
         }
         failure {
-            echo "❌ Échec du pipeline. Vérifiez les étapes ci-dessus dans Jenkins."
+            echo "❌ Échec du pipeline, voir les logs Jenkins."
         }
     }
 }
