@@ -1,0 +1,75 @@
+---
+- name: Déployer l'infrastructure avec Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  vars:
+    network_name: "filrouge-ansible-network"
+    volume_name: "postgres-ansible-data"
+    db_name: "backend-db-ansible"
+    backend_name: "backend-ansible"
+    frontend_name: "frontend-ansible"
+    db_user: "odc"
+    db_password: "odc123"
+    db_database: "odcdb"
+    db_port: 5436
+    backend_port: 8003
+    frontend_port: 8083
+  
+  tasks:
+    # Créer le réseau
+    - name: Créer le réseau Docker
+      command: docker network create {{ network_name }}
+      ignore_errors: yes
+    
+    # Créer le volume
+    - name: Créer le volume Docker pour PostgreSQL
+      command: docker volume create {{ volume_name }}
+      ignore_errors: yes
+    
+    # Déployer la base de données
+    - name: Déployer le conteneur PostgreSQL
+      command: >
+        docker run -d --name {{ db_name }} 
+        --network {{ network_name }}
+        -e POSTGRES_USER={{ db_user }}
+        -e POSTGRES_PASSWORD={{ db_password }}
+        -e POSTGRES_DB={{ db_database }}
+        -p {{ db_port }}:5432
+        -v {{ volume_name }}:/var/lib/postgresql/data
+        postgres:15
+      ignore_errors: yes
+    
+    # Déployer le backend
+    - name: Déployer le conteneur Backend
+      command: >
+        docker run -d --name {{ backend_name }}
+        --network {{ network_name }}
+        -e DB_NAME={{ db_database }}
+        -e DB_USER={{ db_user }}
+        -e DB_PASSWORD={{ db_password }}
+        -e DB_HOST={{ db_name }}
+        -e DB_PORT=5432
+        -p {{ backend_port }}:8000
+        dakyh/filrouge-backend:latest
+      ignore_errors: yes
+    
+    # Déployer le frontend
+    - name: Déployer le conteneur Frontend
+      command: >
+        docker run -d --name {{ frontend_name }}
+        --network {{ network_name }}
+        -e VITE_API_URL=http://{{ backend_name }}:8000
+        -p {{ frontend_port }}:80
+        dakyh/filrouge-frontend:latest
+      ignore_errors: yes
+    
+    # Afficher les informations de connexion
+    - name: Afficher les informations de déploiement
+      debug:
+        msg:
+          - "Déploiement réussi avec Ansible !"
+          - "Frontend: http://localhost:{{ frontend_port }}"
+          - "Backend: http://localhost:{{ backend_port }}"
+          - "Database: jdbc:postgresql://localhost:{{ db_port }}/{{ db_database }}"
