@@ -8,15 +8,18 @@ pipeline {
     stages {
         stage('Cloner le dépôt') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/dakyh/lastfilrouge.git'
+                git url: 'https://github.com/dakyh/lastfilrouge.git', branch: 'main'
             }
         }
 
         stage('Initialiser Terraform') {
             steps {
                 dir('terraform') {
-                    bat 'terraform init'
+                    script {
+                        docker.image('hashicorp/terraform:1.6.6').inside {
+                            sh 'terraform init'
+                        }
+                    }
                 }
             }
         }
@@ -24,7 +27,11 @@ pipeline {
         stage('Plan Terraform') {
             steps {
                 dir('terraform') {
-                    bat 'terraform plan -out=plan.tfplan'
+                    script {
+                        docker.image('hashicorp/terraform:1.6.6').inside {
+                            sh 'terraform plan'
+                        }
+                    }
                 }
             }
         }
@@ -32,18 +39,22 @@ pipeline {
         stage('Appliquer Terraform') {
             steps {
                 dir('terraform') {
-                    bat 'terraform apply -auto-approve plan.tfplan'
+                    script {
+                        docker.image('hashicorp/terraform:1.6.6').inside {
+                            sh 'terraform apply -auto-approve'
+                        }
+                    }
                 }
             }
         }
     }
 
     post {
-        success {
-            echo "✅ Déploiement avec Terraform réussi."
-        }
         failure {
-            echo "❌ Échec du déploiement Terraform. Vérifie les erreurs."
+            echo '❌ Le pipeline Terraform a échoué.'
+        }
+        success {
+            echo '✅ Terraform exécuté avec succès.'
         }
     }
 }
