@@ -38,17 +38,17 @@ pipeline {
         
         stage('Deployment Info') {
             steps {
-                echo "Application déployée avec succès!"
+                echo "Application déployée avec succès via Terraform!"
                 echo "Frontend: http://localhost:8082"
                 echo "Backend: http://localhost:8002"
-                echo "PostgreSQL: localhost:5435"
+                echo "Database: jdbc:postgresql://localhost:5435/odcdb"
             }
         }
     }
     
     post {
         success {
-            echo "Déploiement réussi!"
+            echo "Déploiement réussi avec Terraform!"
         }
         failure {
             echo "Échec du déploiement! Vérifiez les logs pour plus d'informations."
