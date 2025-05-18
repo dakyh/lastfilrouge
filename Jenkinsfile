@@ -1,28 +1,11 @@
 pipeline {
     agent any
 
-    tools {
-        jdk 'jdk17'
-    }
-
     environment {
-        DOCKER_USER = 'dakyh'
-        BACKEND_IMAGE = "${DOCKER_USER}/filrouge-backend"
-        FRONTEND_IMAGE = "${DOCKER_USER}/filrouge-frontend"
-        DB_IMAGE = "${DOCKER_USER}/filrouge-db"
-
-        SONARQUBE_SERVER = 'SonarQube'
-        SONARQUBE_TOKEN = credentials('tokenkhady')
+        TF_IN_AUTOMATION = "true"
     }
 
     stages {
-        stage('Vérifier JAVA') {
-            steps {
-                bat 'echo JAVA_HOME=%JAVA_HOME%'
-                bat 'java -version'
-            }
-        }
-
         stage('Cloner le dépôt') {
             steps {
                 git branch: 'main',
@@ -30,38 +13,37 @@ pipeline {
             }
         }
 
-        stage('Analyse SonarQube') {
+        stage('Initialiser Terraform') {
             steps {
-                withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
-                        bat """
-                            ${scannerHome}/bin/sonar-scanner ^
-                              -Dsonar.projectKey=filbykhadylast ^
-                              -Dsonar.sources=. ^
-                              -Dsonar.host.url=http://localhost:9000 ^
-                              -Dsonar.token=${SONARQUBE_TOKEN}
-                        """
-                    }
+                dir('terraform') {
+                    bat 'terraform init'
                 }
             }
         }
 
-        stage('Build des images Docker') {
+        stage('Plan Terraform') {
             steps {
-                bat "docker build -t %BACKEND_IMAGE%:latest ./Backend/odc"
-                bat "docker build -t %FRONTEND_IMAGE%:latest ./Frontend"
-                bat "docker build -t %DB_IMAGE%:latest ./DB_filRouge"
+                dir('terraform') {
+                    bat 'terraform plan -out=plan.tfplan'
+                }
+            }
+        }
+
+        stage('Appliquer Terraform') {
+            steps {
+                dir('terraform') {
+                    bat 'terraform apply -auto-approve plan.tfplan'
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline terminé avec succès. Application buildée et analysée."
+            echo "✅ Déploiement avec Terraform réussi."
         }
         failure {
-            echo "❌ Échec du pipeline, voir les logs Jenkins."
+            echo "❌ Échec du déploiement Terraform. Vérifie les erreurs."
         }
     }
 }
