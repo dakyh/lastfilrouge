@@ -10,8 +10,8 @@ pipeline {
         
         stage('Deploy with PowerShell') {
             steps {
-                // Ajout de 'failOnError: false' pour éviter que le pipeline échoue si les conteneurs existent déjà
-                powershell(script: '.\\deploy-ansible.ps1', failOnError: false)
+                // Utiliser simplement powershell sans options supplémentaires
+                powershell '.\\deploy-ansible.ps1'
             }
         }
         
