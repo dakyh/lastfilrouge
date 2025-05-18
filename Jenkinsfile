@@ -3,7 +3,6 @@ pipeline {
     
     environment {
         TERRAFORM_DIR = "${WORKSPACE}/terraform"
-        K8S_DIR = "${WORKSPACE}/k8s"
     }
     
     stages {
@@ -13,51 +12,46 @@ pipeline {
             }
         }
         
-        stage('Docker Deployment') {
+        stage('Terraform Init') {
             steps {
                 dir(TERRAFORM_DIR) {
                     bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 init'
+                }
+            }
+        }
+        
+        stage('Terraform Plan') {
+            steps {
+                dir(TERRAFORM_DIR) {
                     bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 plan -out=tfplan'
+                }
+            }
+        }
+        
+        stage('Terraform Apply') {
+            steps {
+                dir(TERRAFORM_DIR) {
                     bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 apply -auto-approve tfplan'
                 }
-                echo "Application Docker déployée avec succès!"
+            }
+        }
+        
+        stage('Deployment Info') {
+            steps {
+                echo "Application déployée avec succès!"
                 echo "Frontend: http://localhost:8082"
                 echo "Backend: http://localhost:8002"
-            }
-        }
-        
-        stage('Start Minikube') {
-            steps {
-                bat 'minikube status || minikube start'
-            }
-        }
-        
-        stage('Kubernetes Deployment') {
-            steps {
-                dir(K8S_DIR) {
-                    // Déployer directement avec kubectl en utilisant les fichiers existants
-                    bat 'kubectl apply -f backend-db-pod.yaml'
-                    bat 'kubectl apply -f frontend-pod.yaml'
-                }
-            }
-        }
-        
-        stage('Kubernetes Deployment Info') {
-            steps {
-                bat 'kubectl get pods'
-                bat 'kubectl get services'
-                bat 'minikube service list'
-                echo "Pour accéder au frontend: minikube service frontend-service"
+                echo "PostgreSQL: localhost:5435"
             }
         }
     }
     
     post {
         success {
-            echo "Déploiement réussi sur Docker et Kubernetes!"
+            echo "Déploiement réussi!"
         }
         failure {
-            echo "Échec du déploiement!"
+            echo "Échec du déploiement! Vérifiez les logs pour plus d'informations."
         }
     }
 }
