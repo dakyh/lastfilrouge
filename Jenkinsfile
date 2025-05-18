@@ -1,60 +1,57 @@
 pipeline {
     agent any
-
+    
     environment {
-        TF_IN_AUTOMATION = "true"
+        TERRAFORM_DIR = "${WORKSPACE}/terraform"
     }
-
+    
     stages {
-        stage('Cloner le dépôt') {
+        stage('Checkout') {
             steps {
-                git url: 'https://github.com/dakyh/lastfilrouge.git', branch: 'main'
+                checkout scm
             }
         }
-
-        stage('Initialiser Terraform') {
+        
+        stage('Terraform Init') {
             steps {
-                dir('terraform') {
-                    script {
-                        docker.image('hashicorp/terraform:1.6.6').inside {
-                            sh 'terraform init'
-                        }
-                    }
+                dir(TERRAFORM_DIR) {
+                    bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 init'
                 }
             }
         }
-
-        stage('Plan Terraform') {
+        
+        stage('Terraform Plan') {
             steps {
-                dir('terraform') {
-                    script {
-                        docker.image('hashicorp/terraform:1.6.6').inside {
-                            sh 'terraform plan'
-                        }
-                    }
+                dir(TERRAFORM_DIR) {
+                    bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 plan -out=tfplan'
                 }
             }
         }
-
-        stage('Appliquer Terraform') {
+        
+        stage('Terraform Apply') {
             steps {
-                dir('terraform') {
-                    script {
-                        docker.image('hashicorp/terraform:1.6.6').inside {
-                            sh 'terraform apply -auto-approve'
-                        }
-                    }
+                dir(TERRAFORM_DIR) {
+                    bat 'docker run --rm -v %CD%:/workspace -w /workspace --add-host=host.docker.internal:host-gateway hashicorp/terraform:1.6.6 apply -auto-approve tfplan'
                 }
+            }
+        }
+        
+        stage('Deployment Info') {
+            steps {
+                echo "Application déployée avec succès!"
+                echo "Frontend: http://localhost:8082"
+                echo "Backend: http://localhost:8002"
+                echo "PostgreSQL: localhost:5435"
             }
         }
     }
-
+    
     post {
-        failure {
-            echo '❌ Le pipeline Terraform a échoué.'
-        }
         success {
-            echo '✅ Terraform exécuté avec succès.'
+            echo "Déploiement réussi!"
+        }
+        failure {
+            echo "Échec du déploiement! Vérifiez les logs pour plus d'informations."
         }
     }
 }

@@ -1,122 +1,107 @@
-provider "kubernetes" {
-  config_path = "C:/Users/lenovo/.kube/config"
-}
-
-resource "kubernetes_pod" "backend_db_pod" {
-  metadata {
-    name = "backend-db-pod"
-    labels = {
-      app = "backend-db"
-    }
-  }
-  spec {
-    container {
-      name  = "db"
-      image = "postgres:15"
-      env {
-        name  = "POSTGRES_USER"
-        value = "odc"
-      }
-      env {
-        name  = "POSTGRES_PASSWORD"
-        value = "odc123"
-      }
-      env {
-        name  = "POSTGRES_DB"
-        value = "odcdb"
-      }
-      ports {
-        container_port = 5432
-      }
-      volume_mount {
-        name       = "postgres-storage"
-        mount_path = "/var/lib/postgresql/data"
-      }
-    }
-    container {
-      name  = "backend"
-      image = "dakyh/filrouge-backend:latest"
-      env {
-        name  = "DB_NAME"
-        value = "odcdb"
-      }
-      env {
-        name  = "DB_USER"
-        value = "odc"
-      }
-      env {
-        name  = "DB_PASSWORD"
-        value = "odc123"
-      }
-      env {
-        name  = "DB_HOST"
-        value = "localhost"
-      }
-      env {
-        name  = "DB_PORT"
-        value = "5432"
-      }
-      ports {
-        container_port = 8000
-      }
-    }
-    volume {
-      name = "postgres-storage"
-      empty_dir {}
+terraform {
+  required_providers {
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "~> 3.0.0"
     }
   }
 }
 
-resource "kubernetes_service" "backend_service" {
-  metadata {
-    name = "backend-service"
+provider "docker" {
+  host = "tcp://host.docker.internal:2375"
+}
+
+# Réseau Docker dédié pour les conteneurs déployés par Terraform
+resource "docker_network" "app_network" {
+  name = "filrouge-terraform-network"  # Nom distinct
+}
+
+# Volume pour les données PostgreSQL
+resource "docker_volume" "postgres_data" {
+  name = "postgres-terraform-data"  # Nom distinct
+}
+
+# Conteneur PostgreSQL
+resource "docker_container" "db" {
+  name  = "backend-db-terraform"  # Nom distinct
+  image = "postgres:15"
+  
+  networks_advanced {
+    name = docker_network.app_network.name
   }
-  spec {
-    selector = {
-      app = "backend-db"
-    }
-    port {
-      port        = 8000
-      target_port = 8000
-    }
-    type = "ClusterIP"
+  
+  volumes {
+    volume_name    = docker_volume.postgres_data.name
+    container_path = "/var/lib/postgresql/data"
+  }
+  
+  env = [
+    "POSTGRES_USER=odc",
+    "POSTGRES_PASSWORD=odc123",
+    "POSTGRES_DB=odcdb"
+  ]
+  
+  ports {
+    internal = 5432
+    external = 5435  # Port différent
   }
 }
 
-resource "kubernetes_pod" "frontend_pod" {
-  metadata {
-    name = "frontend-pod"
-    labels = {
-      app = "frontend"
-    }
+# Conteneur Backend
+resource "docker_container" "backend" {
+  name  = "backend-terraform"  # Nom distinct
+  image = "dakyh/filrouge-backend:latest"
+  
+  networks_advanced {
+    name = docker_network.app_network.name
   }
-  spec {
-    container {
-      name  = "frontend"
-      image = "dakyh/filrouge-frontend:latest"
-      ports {
-        container_port = 80
-      }
-      env {
-        name  = "VITE_API_URL"
-        value = "http://backend-service:8000"
-      }
-    }
+  
+  env = [
+    "DB_NAME=odcdb",
+    "DB_USER=odc",
+    "DB_PASSWORD=odc123",
+    "DB_HOST=${docker_container.db.name}",
+    "DB_PORT=5432"
+  ]
+  
+  ports {
+    internal = 8000
+    external = 8002  # Port différent
   }
+  
+  depends_on = [docker_container.db]
 }
 
-resource "kubernetes_service" "frontend_service" {
-  metadata {
-    name = "frontend-service"
+# Conteneur Frontend
+resource "docker_container" "frontend" {
+  name  = "frontend-terraform"  # Nom distinct
+  image = "dakyh/filrouge-frontend:latest"
+  
+  networks_advanced {
+    name = docker_network.app_network.name
   }
-  spec {
-    selector = {
-      app = "frontend"
-    }
-    port {
-      port        = 8081
-      target_port = 80
-    }
-    type = "LoadBalancer"
+  
+  env = [
+    "VITE_API_URL=http://${docker_container.backend.name}:8000"
+  ]
+  
+  ports {
+    internal = 80
+    external = 8082  # Port différent
   }
+  
+  depends_on = [docker_container.backend]
+}
+
+# Outputs pour afficher les URLs d'accès
+output "frontend_url" {
+  value = "http://localhost:8082"
+}
+
+output "backend_url" {
+  value = "http://localhost:8002"
+}
+
+output "database_connection" {
+  value = "jdbc:postgresql://localhost:5435/odcdb"
 }
