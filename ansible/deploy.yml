@@ -1,0 +1,51 @@
+---
+- name: Déployer Fil Rouge
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  tasks:
+    - name: Créer réseau
+      shell: docker network create filrouge-network || true
+      
+    - name: Créer volume
+      shell: docker volume create postgres-data || true
+      
+    - name: PostgreSQL
+      shell: |
+        docker run -d --name backend-db \
+          --network filrouge-network \
+          -e POSTGRES_USER=odc \
+          -e POSTGRES_PASSWORD=odc123 \
+          -e POSTGRES_DB=odcdb \
+          -p 5436:5432 \
+          -v postgres-data:/var/lib/postgresql/data \
+          postgres:15 || docker start backend-db
+          
+    - pause: seconds=8
+    
+    - name: Backend
+      shell: |
+        docker run -d --name backend \
+          --network filrouge-network \
+          -e DB_NAME=odcdb \
+          -e DB_USER=odc \
+          -e DB_PASSWORD=odc123 \
+          -e DB_HOST=backend-db \
+          -e DB_PORT=5432 \
+          -p 8003:8000 \
+          dakyh/filrouge-backend:latest || docker start backend
+          
+    - name: Frontend
+      shell: |
+        docker run -d --name frontend \
+          --network filrouge-network \
+          -e VITE_API_URL=http://backend:8000 \
+          -p 8083:80 \
+          dakyh/filrouge-frontend:latest || docker start frontend
+          
+    - debug:
+        msg:
+          - "✅ DÉPLOYÉ !"
+          - "Frontend: http://localhost:8083"
+          - "Backend: http://localhost:8003"
