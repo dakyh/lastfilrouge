@@ -11,9 +11,9 @@ pipeline {
         stage('Deploy with Ansible') {
             steps {
                 script {
-                    // Utiliser WSL pour exécuter Ansible
+                    // Corriger le chemin WSL avec le bon répertoire Jenkins
                     bat '''
-                        wsl -d Ubuntu -e bash -c "cd /mnt/c/jenkins/workspace/%JOB_NAME% && ansible-playbook deploy.yml"
+                        wsl -d Ubuntu -e bash -c "cd '/mnt/c/ProgramData/Jenkins/.jenkins/workspace/filrougekha' && ansible-playbook deploy.yml"
                     '''
                 }
             }
