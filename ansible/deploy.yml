@@ -1,51 +1,122 @@
 ---
-- name: Déployer Fil Rouge
+- name: Déployer Fil Rouge avec migrations DB
   hosts: localhost
   connection: local
   gather_facts: no
   
+  vars:
+    app_name: "filrouge-app"
+    db_container: "backend-db"
+    backend_container: "backend"
+    frontend_container: "frontend"
+    network_name: "filrouge-network"
+    volume_name: "postgres-data"
+  
   tasks:
-    - name: Créer réseau
-      shell: docker network create filrouge-network || true
+    - name: 📡 Créer réseau Docker
+      shell: docker network create {{ network_name }} || true
       
-    - name: Créer volume
-      shell: docker volume create postgres-data || true
+    - name: 💾 Créer volume PostgreSQL
+      shell: docker volume create {{ volume_name }} || true
       
-    - name: PostgreSQL
+    - name: 🗄️ Déployer PostgreSQL
       shell: |
-        docker run -d --name backend-db \
-          --network filrouge-network \
+        docker run -d --name {{ db_container }} \
+          --network {{ network_name }} \
           -e POSTGRES_USER=odc \
           -e POSTGRES_PASSWORD=odc123 \
           -e POSTGRES_DB=odcdb \
           -p 5436:5432 \
-          -v postgres-data:/var/lib/postgresql/data \
-          postgres:15 || docker start backend-db
+          -v {{ volume_name }}:/var/lib/postgresql/data \
+          --restart unless-stopped \
+          postgres:15 || docker start {{ db_container }}
           
-    - pause: seconds=8
-    
-    - name: Backend
+    - name: ⏳ Attendre que PostgreSQL soit prêt
+      wait_for:
+        port: 5436
+        host: localhost
+        delay: 10
+        timeout: 60
+        
+    - name: ⚙️ Déployer Backend
       shell: |
-        docker run -d --name backend \
-          --network filrouge-network \
+        docker run -d --name {{ backend_container }} \
+          --network {{ network_name }} \
           -e DB_NAME=odcdb \
           -e DB_USER=odc \
           -e DB_PASSWORD=odc123 \
-          -e DB_HOST=backend-db \
+          -e DB_HOST={{ db_container }} \
           -e DB_PORT=5432 \
           -p 8003:8000 \
-          dakyh/filrouge-backend:latest || docker start backend
+          --restart unless-stopped \
+          dakyh/filrouge-backend:latest || docker start {{ backend_container }}
           
-    - name: Frontend
+    - name: ⏳ Attendre que le Backend soit prêt
+      wait_for:
+        port: 8003
+        host: localhost
+        delay: 5
+        timeout: 30
+        
+    - name: 🔄 Exécuter les migrations de base de données
       shell: |
-        docker run -d --name frontend \
-          --network filrouge-network \
-          -e VITE_API_URL=http://backend:8000 \
+        docker exec {{ backend_container }} python manage.py migrate
+      register: migration_result
+      ignore_errors: yes
+      
+    - name: 📊 Résultat des migrations
+      debug:
+        var: migration_result.stdout_lines
+      when: migration_result.stdout_lines is defined
+      
+    - name: 👤 Créer un superutilisateur (si nécessaire)
+      shell: |
+        docker exec {{ backend_container }} python manage.py shell -c "
+        from django.contrib.auth import get_user_model;
+        User = get_user_model();
+        if not User.objects.filter(username='admin').exists():
+            User.objects.create_superuser('admin', 'admin@example.com', 'admin123');
+            print('Superutilisateur créé: admin/admin123')
+        else:
+            print('Superutilisateur existe déjà')
+        " 2>/dev/null || echo "Pas de modèle User ou pas Django"
+      register: superuser_result
+      ignore_errors: yes
+      
+    - name: 📊 Résultat création superutilisateur
+      debug:
+        var: superuser_result.stdout_lines
+      when: superuser_result.stdout_lines is defined
+      
+    - name: 📦 Collecter les fichiers statiques
+      shell: |
+        docker exec {{ backend_container }} python manage.py collectstatic --noinput
+      register: collectstatic_result
+      ignore_errors: yes
+      
+    - name: 📊 Résultat collectstatic
+      debug:
+        var: collectstatic_result.stdout_lines
+      when: collectstatic_result.stdout_lines is defined
+      
+    - name: 🌐 Déployer Frontend
+      shell: |
+        docker run -d --name {{ frontend_container }} \
+          --network {{ network_name }} \
+          -e VITE_API_URL=http://{{ backend_container }}:8000 \
           -p 8083:80 \
-          dakyh/filrouge-frontend:latest || docker start frontend
+          --restart unless-stopped \
+          dakyh/filrouge-frontend:latest || docker start {{ frontend_container }}
           
-    - debug:
+    - name: 🎉 Afficher le résultat final
+      debug:
         msg:
-          - "✅ DÉPLOYÉ !"
-          - "Frontend: http://localhost:8083"
-          - "Backend: http://localhost:8003"
+          - ""
+          - "✅ DÉPLOIEMENT TERMINÉ AVEC MIGRATIONS !"
+          - ""
+          - "🌐 Frontend: http://localhost:8083"
+          - "⚙️  Backend: http://localhost:8003"
+          - "🗄️  Database: jdbc:postgresql://localhost:5436/odcdb"
+          - "👤 Admin Django: admin/admin123 (si Django)"
+          - ""
+          - "🔍 Vérifiez les logs de migrations ci-dessus"
